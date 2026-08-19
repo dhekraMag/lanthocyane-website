@@ -42,6 +42,10 @@ export default function RootLayout({
       data-scroll-behavior="smooth"
       className={`${inter.variable} ${playfair.variable}`}
     >
+      <head>
+        {/* ⬇️ ADD THIS MANUAL LINK ⬇️ */}
+        <link rel="icon" href="/favicon.ico.ico" type="image/x-icon" />
+      </head>
       <body className="bg-[#FDF8F0] text-[#2C2C2C] antialiased">
         <Header />
         <main className="min-h-screen">{children}</main>
