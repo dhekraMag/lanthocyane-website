@@ -1,327 +1,311 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { Save, Clock, Users, MapPin,  RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Save, Clock, Users, MapPin, RefreshCw, Phone, Mail, Calendar } from 'lucide-react'
 
-interface Settings {
-  id?: string
-  restaurant_name: string
+type SettingsData = {
+  id: string
+  restaurantName: string
   address: string
   phone: string
   email: string
-  lunch_start: string
-  lunch_end: string
-  dinner_start: string
-  dinner_end: string
-  max_guests: number
-  reservation_buffer: number
-  closed_days: string
+  lunchStart: string
+  lunchEnd: string
+  dinnerStart: string
+  dinnerEnd: string
+  maxGuests: number
+  reservationBuffer: number
+  closedDays: string
 }
 
 export default function AdminSettings() {
-  const [settings, setSettings] = useState<Settings>({
-    restaurant_name: "L'Anthocyane",
+  const [settings, setSettings] = useState<SettingsData>({
+    id: '',
+    restaurantName: "L'Anthocyane",
     address: '25 avenue Ernest-Renan, 22300 Lannion',
     phone: '02 96 38 30 49',
     email: 'contact@lanthocyane.com',
-    lunch_start: '12:00',
-    lunch_end: '14:00',
-    dinner_start: '19:00',
-    dinner_end: '21:00',
-    max_guests: 20,
-    reservation_buffer: 30,
-    closed_days: 'Lundi, Mardi'
+    lunchStart: '12:00',
+    lunchEnd: '14:00',
+    dinnerStart: '19:00',
+    dinnerEnd: '21:00',
+    maxGuests: 20,
+    reservationBuffer: 30,
+    closedDays: 'Lundi, Mardi',
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [message, setMessage] = useState<string | null>(null)
 
-  const loadSettings = async () => {
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  const fetchSettings = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('settings')
-        .select('*')
-        .maybeSingle()
-
-      if (error && error.code !== 'PGRST116') throw error
+      const response = await fetch('/api/settings')
+      if (!response.ok) throw new Error('Failed to fetch')
+      const data = await response.json()
       
-      if (data) {
-        setSettings(data)
+      if (Array.isArray(data) && data.length > 0) {
+        const s = data[0]
+        setSettings({
+          id: s.id || '',
+          restaurantName: s.restaurantName || s.restaurant_name || settings.restaurantName,
+          address: s.address || settings.address,
+          phone: s.phone || settings.phone,
+          email: s.email || settings.email,
+          lunchStart: s.lunchStart || s.lunch_start || settings.lunchStart,
+          lunchEnd: s.lunchEnd || s.lunch_end || settings.lunchEnd,
+          dinnerStart: s.dinnerStart || s.dinner_start || settings.dinnerStart,
+          dinnerEnd: s.dinnerEnd || s.dinner_end || settings.dinnerEnd,
+          maxGuests: s.maxGuests || s.max_guests || settings.maxGuests,
+          reservationBuffer: s.reservationBuffer || s.reservation_buffer || settings.reservationBuffer,
+          closedDays: s.closedDays || s.closed_days || settings.closedDays,
+        })
       }
-    } catch (err: any) {
-      console.error('Error loading settings:', err)
+    } catch (error) {
+      console.error('Error fetching settings:', error)
+      setMessage('❌ Erreur de chargement')
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    loadSettings()
-  }, [])
-
-  const handleRefresh = () => {
-    console.log('🔄 Refreshing settings...')
-    loadSettings()
-  }
-
-  const handleSave = async () => {
+  const saveSettings = async () => {
     setSaving(true)
-    setSaved(false)
-    setError(null)
+    setMessage(null)
     
     try {
-      const { data: existing, error: checkError } = await supabase
-        .from('settings')
-        .select('id')
-        .maybeSingle()
+      const settingsToSave = [
+        { key: 'restaurant_name', value: settings.restaurantName },
+        { key: 'address', value: settings.address },
+        { key: 'phone', value: settings.phone },
+        { key: 'email', value: settings.email },
+        { key: 'lunch_start', value: settings.lunchStart },
+        { key: 'lunch_end', value: settings.lunchEnd },
+        { key: 'dinner_start', value: settings.dinnerStart },
+        { key: 'dinner_end', value: settings.dinnerEnd },
+        { key: 'max_guests', value: String(settings.maxGuests) },
+        { key: 'reservation_buffer', value: String(settings.reservationBuffer) },
+        { key: 'closed_days', value: settings.closedDays },
+      ]
 
-      if (checkError && checkError.code !== 'PGRST116') throw checkError
-
-      let result
-      if (existing) {
-        result = await supabase
-          .from('settings')
-          .update({
-            restaurant_name: settings.restaurant_name,
-            address: settings.address,
-            phone: settings.phone,
-            email: settings.email,
-            lunch_start: settings.lunch_start,
-            lunch_end: settings.lunch_end,
-            dinner_start: settings.dinner_start,
-            dinner_end: settings.dinner_end,
-            max_guests: settings.max_guests,
-            reservation_buffer: settings.reservation_buffer,
-            closed_days: settings.closed_days,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existing.id)
-      } else {
-        result = await supabase
-          .from('settings')
-          .insert([{
-            restaurant_name: settings.restaurant_name,
-            address: settings.address,
-            phone: settings.phone,
-            email: settings.email,
-            lunch_start: settings.lunch_start,
-            lunch_end: settings.lunch_end,
-            dinner_start: settings.dinner_start,
-            dinner_end: settings.dinner_end,
-            max_guests: settings.max_guests,
-            reservation_buffer: settings.reservation_buffer,
-            closed_days: settings.closed_days,
-          }])
+      for (const item of settingsToSave) {
+        const response = await fetch('/api/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(item),
+        })
+        if (!response.ok) {
+          throw new Error(`Failed to save ${item.key}`)
+        }
       }
 
-      if (result.error) throw result.error
-
-      setSaved(true)
-      setTimeout(() => setSaved(false), 3000)
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de l\'enregistrement')
+      setMessage('✅ Paramètres sauvegardés avec succès !')
+      await fetchSettings()
+    } catch (error) {
+      console.error('Error saving settings:', error)
+      setMessage('❌ Erreur lors de la sauvegarde')
     } finally {
       setSaving(false)
     }
   }
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setSettings(prev => ({ ...prev, [name]: value }))
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#7B2D6E] border-t-transparent rounded-full animate-spin" />
+      <div className="flex justify-center items-center py-12">
+        <RefreshCw size={32} className="animate-spin text-[#7B2D6E]" />
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-serif text-[#2D1B2E]">Paramètres</h1>
-          <p className="text-[#4A4A4A]">Configurez votre restaurant</p>
-        </div>
+    <div className="p-6 max-w-3xl mx-auto pt-20">
+      {/* Floating Save Button - Always visible */}
+      <div className="fixed top-16 right-8 z-50">
         <button
-          onClick={handleRefresh}
-          className="bg-[#7B2D6E] text-white px-4 py-2 rounded-lg hover:bg-[#5C1F52] transition flex items-center gap-2"
+          onClick={saveSettings}
+          disabled={saving}
+          className="flex items-center gap-2 px-6 py-3 bg-[#7B2D6E] text-white rounded-xl hover:bg-[#6B255E] transition-colors disabled:opacity-50 shadow-lg"
         >
-          <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-          Rafraîchir
+          <Save size={20} className={saving ? 'animate-pulse' : ''} />
+          {saving ? 'Sauvegarde...' : '💾 Enregistrer'}
         </button>
       </div>
 
-      {error && (
-        <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg mb-4">
-          ❌ {error}
+      {message && (
+        <div
+          className={`mb-4 p-4 rounded-lg ${
+            message.includes('✅')
+              ? 'bg-green-100 text-green-800 border border-green-300'
+              : 'bg-red-100 text-red-800 border border-red-300'
+          }`}
+        >
+          {message}
         </div>
       )}
 
-      {saved && (
-        <div className="bg-green-50 text-green-600 px-4 py-2 rounded-lg mb-4">
-          ✅ Paramètres enregistrés !
-        </div>
-      )}
-
-      <div className="bg-white rounded-xl shadow-sm border p-6 space-y-8">
-        {/* Restaurant Info */}
-        <div>
-          <h2 className="text-lg font-serif mb-4 flex items-center gap-2">
-            <MapPin size={20} className="text-[#7B2D6E]" />
-            Informations
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="space-y-5 bg-white rounded-xl shadow-sm border border-[#E8DDD0] p-6">
+        {/* General Info */}
+        <div className="border-b border-[#E8DDD0] pb-4">
+          <h2 className="font-playfair text-lg text-[#2C2C2C] mb-4">Informations générales</h2>
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Nom</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                <MapPin size={16} className="inline mr-2 text-[#7B2D6E]" /> Nom du Restaurant
+              </label>
               <input
                 type="text"
-                name="restaurant_name"
-                value={settings.restaurant_name}
+                name="restaurantName"
+                value={settings.restaurantName}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Adresse</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                <MapPin size={16} className="inline mr-2 text-[#7B2D6E]" /> Adresse
+              </label>
               <input
                 type="text"
                 name="address"
                 value={settings.address}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Téléphone</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                <Phone size={16} className="inline mr-2 text-[#7B2D6E]" /> Téléphone
+              </label>
               <input
                 type="text"
                 name="phone"
                 value={settings.phone}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                <Mail size={16} className="inline mr-2 text-[#7B2D6E]" /> Email
+              </label>
               <input
                 type="email"
                 name="email"
                 value={settings.email}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
           </div>
         </div>
 
-        {/* Hours */}
-        <div className="pt-6 border-t">
-          <h2 className="text-lg font-serif mb-4 flex items-center gap-2">
-            <Clock size={20} className="text-[#7B2D6E]" />
-            Horaires
+        {/* Opening Hours */}
+        <div className="border-b border-[#E8DDD0] pb-4">
+          <h2 className="font-playfair text-lg text-[#2C2C2C] mb-4">
+            <Clock size={18} className="inline mr-2 text-[#7B2D6E]" /> Horaires d&apos;ouverture
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Déjeuner - Début</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">Déjeuner début</label>
               <input
                 type="time"
-                name="lunch_start"
-                value={settings.lunch_start}
+                name="lunchStart"
+                value={settings.lunchStart}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Déjeuner - Fin</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">Déjeuner fin</label>
               <input
                 type="time"
-                name="lunch_end"
-                value={settings.lunch_end}
+                name="lunchEnd"
+                value={settings.lunchEnd}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Dîner - Début</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">Dîner début</label>
               <input
                 type="time"
-                name="dinner_start"
-                value={settings.dinner_start}
+                name="dinnerStart"
+                value={settings.dinnerStart}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Dîner - Fin</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">Dîner fin</label>
               <input
                 type="time"
-                name="dinner_end"
-                value={settings.dinner_end}
+                name="dinnerEnd"
+                value={settings.dinnerEnd}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
           </div>
         </div>
 
-        {/* Reservation Settings */}
-        <div className="pt-6 border-t">
-          <h2 className="text-lg font-serif mb-4 flex items-center gap-2">
-            <Users size={20} className="text-[#7B2D6E]" />
-            Réservations
+        {/* Reservations */}
+        <div>
+          <h2 className="font-playfair text-lg text-[#2C2C2C] mb-4">
+            <Users size={18} className="inline mr-2 text-[#7B2D6E]" /> Réservations
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Max personnes</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                Nombre max de personnes
+              </label>
               <input
                 type="number"
-                name="max_guests"
-                value={settings.max_guests}
-                onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                name="maxGuests"
+                value={settings.maxGuests}
+                onChange={(e) => setSettings(prev => ({ ...prev, maxGuests: parseInt(e.target.value) || 8 }))}
+                min="1"
+                max="50"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Délai (minutes)</label>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                Temps tampon (minutes)
+              </label>
               <input
                 type="number"
-                name="reservation_buffer"
-                value={settings.reservation_buffer}
-                onChange={handleChange}
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                name="reservationBuffer"
+                value={settings.reservationBuffer}
+                onChange={(e) => setSettings(prev => ({ ...prev, reservationBuffer: parseInt(e.target.value) || 30 }))}
+                min="0"
+                max="120"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
             </div>
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium mb-1">Jours fermés</label>
+            <div>
+              <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                <Calendar size={16} className="inline mr-2 text-[#7B2D6E]" /> Jours de fermeture
+              </label>
               <input
                 type="text"
-                name="closed_days"
-                value={settings.closed_days}
+                name="closedDays"
+                value={settings.closedDays}
                 onChange={handleChange}
-                placeholder="Lundi, Mardi"
-                className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                placeholder="Ex: Lundi, Mardi"
+                className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
               />
+              <p className="text-xs text-[#5C5C5C] mt-1">Séparez les jours par des virgules</p>
             </div>
           </div>
-        </div>
-
-        {/* Save Button */}
-        <div className="pt-6 border-t flex items-center gap-4">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-[#7B2D6E] text-white px-6 py-3 rounded-full hover:bg-[#5C1F52] transition disabled:opacity-50 flex items-center gap-2"
-          >
-            <Save size={18} />
-            {saving ? 'Enregistrement...' : 'Enregistrer'}
-          </button>
-          {saved && <span className="text-green-600">✅ Enregistré !</span>}
         </div>
       </div>
     </div>

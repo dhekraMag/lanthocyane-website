@@ -12,41 +12,43 @@ model User {
   password  String
   name      String
   role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
   
   reservations Reservation[]
   logs         ActivityLog[]
 }
 
 model Reservation {
-  id               String   @id @default(cuid())
-  userId           String?
-  user             User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  name             String
-  email            String
-  phone            String?
-  date             DateTime
-  time             String
-  guests           Int
-  specialRequests  String?
-  status           ReservationStatus @default(PENDING)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String?  @map("user_id")
+  user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name            String
+  email           String
+  phone           String?
+  date            DateTime
+  time            String
+  guests          Int
+  specialRequests String?  @map("special_requests")
+  status          ReservationStatus @default(PENDING)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
   
-  tableId          String?
-  table            Table?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
+  tableId         String?  @map("table_id")
+  table           Table?   @relation(fields: [tableId], references: [id], onDelete: SetNull)
 }
 
 model Table {
   id           String   @id @default(cuid())
   number       Int      @unique
   capacity     Int
-  isAvailable  Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isAvailable  Boolean  @default(true) @map("is_available")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
   
   reservations Reservation[]
+
+  @@map("Tables")
 }
 
 model MenuItem {
@@ -54,24 +56,44 @@ model MenuItem {
   name        String
   description String?
   price       Float
-  category    MenuCategory
-  dietary     String?      // Store as comma-separated or JSON
-  isAvailable Boolean      @default(true)
-  isPopular   Boolean      @default(false)
+  category    String
+  dietary     String?
+  isAvailable Boolean      @default(true) @map("is_available")
+  isPopular   Boolean      @default(false) @map("is_popular")
   image       String?
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+
+  @@map("MenuItem")
 }
 
 model ActivityLog {
   id        String   @id @default(cuid())
-  userId    String
+  userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   action    String
   details   Json?
-  createdAt DateTime @default(now())
+  createdAt DateTime @default(now()) @map("created_at")
 }
 
+model Settings {
+  id                String   @id @default(cuid())
+  restaurantName    String?  @map("restaurant_name")
+  address           String?
+  phone             String?
+  email             String?
+  lunchStart        String?  @map("lunch_start")
+  lunchEnd          String?  @map("lunch_end")
+  dinnerStart       String?  @map("dinner_start")
+  dinnerEnd         String?  @map("dinner_end")
+  maxGuests         Int?     @map("max_guests")
+  reservationBuffer Int?     @map("reservation_buffer")
+  closedDays        String?  @map("closed_days")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("Settings")
+}
 enum Role {
   ADMIN
   STAFF
@@ -84,11 +106,4 @@ enum ReservationStatus {
   CANCELLED
   COMPLETED
   NO_SHOW
-}
-
-enum MenuCategory {
-  ENTREE
-  PLAT
-  DESSERT
-  BOISSON
 }

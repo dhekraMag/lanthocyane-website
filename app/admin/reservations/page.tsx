@@ -1,249 +1,250 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
-import { Check, X, Clock, RefreshCw } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Check, X, Clock, RefreshCw, Trash2 } from 'lucide-react'
 
-interface Reservation {
+type Reservation = {
   id: string
+  userId: string | null
   name: string
   email: string
-  phone: string
+  phone: string | null
   date: string
   time: string
   guests: number
+  specialRequests: string | null
   status: string
-  created_at: string
+  createdAt: string
+  updatedAt: string
+  tableId: string | null
+  user: { name: string } | null
+  table: { number: number } | null
+}
+
+type StatusUpdate = {
+  id: string
+  status: string
 }
 
 export default function AdminReservations() {
   const [reservations, setReservations] = useState<Reservation[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [filter, setFilter] = useState('all')
   const [updating, setUpdating] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  // ✅ Function to load reservations
-  const loadReservations = async () => {
+  useEffect(() => {
+    fetchReservations()
+  }, [])
+
+  const fetchReservations = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      setError(null)
-
-      const { data, error } = await supabase
-        .from('reservations')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-      setReservations(data || [])
-    } catch (err: any) {
-      setError(err.message)
+      const response = await fetch('/api/reservations')
+      const data = await response.json()
+      setReservations(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error fetching reservations:', error)
+      setReservations([])
     } finally {
       setLoading(false)
     }
   }
 
-  // ✅ Load on page load
-  useEffect(() => {
-    loadReservations()
-  }, [])
-
-  // ✅ Update status
   const updateStatus = async (id: string, status: string) => {
     setUpdating(id)
+    setMessage(null)
     try {
-      const { error } = await supabase
-        .from('reservations')
-        .update({ status })
-        .eq('id', id)
-
-      if (error) throw error
-      setSuccess('Status mis à jour!')
-      await loadReservations()
-      setTimeout(() => setSuccess(null), 3000)
-    } catch (err: any) {
-      setError(err.message)
+      const response = await fetch('/api/reservations', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      })
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Statut mis à jour avec succès' })
+        fetchReservations()
+      } else {
+        setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
+      }
+    } catch (error) {
+      console.error('Error updating reservation:', error)
+      setMessage({ type: 'error', text: 'Erreur lors de la mise à jour' })
     } finally {
       setUpdating(null)
     }
   }
 
-  // ✅ Refresh function
-  const handleRefresh = () => {
-    console.log('🔄 Refreshing reservations...')
-    loadReservations()
+  const deleteReservation = async (id: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer cette réservation ?')) return
+    
+    try {
+      const response = await fetch(`/api/reservations?id=${id}`, { method: 'DELETE' })
+      if (response.ok) {
+        setMessage({ type: 'success', text: 'Réservation supprimée' })
+        fetchReservations()
+      } else {
+        setMessage({ type: 'error', text: 'Erreur lors de la suppression' })
+      }
+    } catch (error) {
+      console.error('Error deleting reservation:', error)
+      setMessage({ type: 'error', text: 'Erreur lors de la suppression' })
+    }
   }
 
-  const getFilteredData = () => {
-    if (filter === 'all') return reservations
-    return reservations.filter(r => r.status === filter.toUpperCase())
-  }
-
-  const filteredData = getFilteredData()
-  const counts = {
-    all: reservations.length,
-    pending: reservations.filter(r => r.status === 'PENDING').length,
-    confirmed: reservations.filter(r => r.status === 'CONFIRMED').length,
-    cancelled: reservations.filter(r => r.status === 'CANCELLED').length,
-    completed: reservations.filter(r => r.status === 'COMPLETED').length,
-  }
-
-  const getBadge = (status: string) => {
-    const colors: any = {
+  const getStatusColor = (status: string) => {
+    const colors: Record<string, string> = {
       PENDING: 'bg-yellow-100 text-yellow-800',
       CONFIRMED: 'bg-green-100 text-green-800',
       CANCELLED: 'bg-red-100 text-red-800',
-      COMPLETED: 'bg-blue-100 text-blue-800'
+      COMPLETED: 'bg-blue-100 text-blue-800',
+      NO_SHOW: 'bg-gray-100 text-gray-800',
     }
-    const labels: any = {
+    return colors[status] || 'bg-gray-100 text-gray-800'
+  }
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
       PENDING: 'En attente',
       CONFIRMED: 'Confirmée',
       CANCELLED: 'Annulée',
-      COMPLETED: 'Terminée'
+      COMPLETED: 'Terminée',
+      NO_SHOW: 'Absent',
     }
-    return {
-      color: colors[status] || 'bg-gray-100',
-      label: labels[status] || status
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#7B2D6E] border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
+    return labels[status] || status
   }
 
   return (
-    <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-serif text-[#2D1B2E]">Réservations</h1>
-          <p className="text-[#4A4A4A]">{reservations.length} total</p>
-        </div>
+    <div className="p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <h1 className="font-playfair text-2xl text-[#2C2C2C]">Réservations</h1>
         <button
-          onClick={handleRefresh}
-          className="bg-[#7B2D6E] text-white px-4 py-2 rounded-lg hover:bg-[#5C1F52] transition flex items-center gap-2"
+          onClick={fetchReservations}
+          className="flex items-center gap-2 px-4 py-2 bg-[#7B2D6E] text-white rounded-lg hover:bg-[#6B255E] transition-colors"
         >
           <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-          Rafraîchir
+          Actualiser
         </button>
       </div>
 
-      {success && (
-        <div className="bg-green-50 text-green-600 px-4 py-2 rounded-lg mb-4">
-          ✅ {success}
+      {message && (
+        <div
+          className={`mb-4 p-3 rounded-lg ${
+            message.type === 'success'
+              ? 'bg-green-100 text-green-800'
+              : 'bg-red-100 text-red-800'
+          }`}
+        >
+          {message.text}
         </div>
       )}
 
-      {error && (
-        <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg mb-4">
-          ❌ {error}
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <RefreshCw size={32} className="animate-spin text-[#7B2D6E]" />
         </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {[
-          { key: 'all', label: 'Toutes' },
-          { key: 'pending', label: 'En attente' },
-          { key: 'confirmed', label: 'Confirmées' },
-          { key: 'cancelled', label: 'Annulées' },
-          { key: 'completed', label: 'Terminées' },
-        ].map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-              filter === f.key
-                ? 'bg-[#7B2D6E] text-white'
-                : 'bg-white border border-gray-200 hover:border-[#7B2D6E]'
-            }`}
-          >
-            {f.label} ({counts[f.key as keyof typeof counts] || 0})
-          </button>
-        ))}
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="p-4 text-left text-sm font-medium">Client</th>
-              <th className="p-4 text-left text-sm font-medium">Date</th>
-              <th className="p-4 text-left text-sm font-medium">Personnes</th>
-              <th className="p-4 text-left text-sm font-medium">Statut</th>
-              <th className="p-4 text-left text-sm font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredData.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-500">
-                  Aucune réservation
-                </td>
-              </tr>
-            ) : (
-              filteredData.map((r) => {
-                const badge = getBadge(r.status)
-                return (
-                  <tr key={r.id} className="border-b hover:bg-gray-50">
-                    <td className="p-4">
-                      <div className="font-medium">{r.name}</div>
-                      <div className="text-sm text-gray-500">{r.email}</div>
+      ) : reservations.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-[#E8DDD0]">
+          <p className="text-[#5C5C5C]">Aucune réservation pour le moment</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-[#E8DDD0] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-[#F5EDE6]">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-[#5C5C5C]">Client</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-[#5C5C5C]">Date & Heure</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-[#5C5C5C]">Personnes</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-[#5C5C5C]">Table</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-[#5C5C5C]">Statut</th>
+                  <th className="px-6 py-3 text-left text-sm font-medium text-[#5C5C5C]">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E8DDD0]">
+                {reservations.map((reservation) => (
+                  <tr key={reservation.id} className="hover:bg-[#FDF8F0] transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-[#2C2C2C]">{reservation.name}</div>
+                      <div className="text-sm text-[#5C5C5C]">{reservation.email}</div>
+                      {reservation.phone && (
+                        <div className="text-xs text-[#5C5C5C]">{reservation.phone}</div>
+                      )}
                     </td>
-                    <td className="p-4">
-                      <div>{new Date(r.date).toLocaleDateString('fr-FR')}</div>
-                      <div className="text-sm text-gray-500">{r.time}</div>
+                    <td className="px-6 py-4">
+                      <div>{new Date(reservation.date).toLocaleDateString('fr-FR')}</div>
+                      <div className="text-sm text-[#5C5C5C]">{reservation.time}</div>
                     </td>
-                    <td className="p-4">{r.guests}</td>
-                    <td className="p-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${badge.color}`}>
-                        {badge.label}
+                    <td className="px-6 py-4">{reservation.guests}</td>
+                    <td className="px-6 py-4">
+                      {reservation.table ? `Table ${reservation.table.number}` : 'Non assignée'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(
+                          reservation.status
+                        )}`}
+                      >
+                        {getStatusLabel(reservation.status)}
                       </span>
                     </td>
-                    <td className="p-4">
-                      <div className="flex gap-2">
-                        {r.status === 'PENDING' && (
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2 flex-wrap">
+                        {reservation.status === 'PENDING' && (
                           <>
                             <button
-                              onClick={() => updateStatus(r.id, 'CONFIRMED')}
-                              disabled={updating === r.id}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                              onClick={() => updateStatus(reservation.id, 'CONFIRMED')}
+                              disabled={updating === reservation.id}
+                              className="p-1.5 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors disabled:opacity-50"
+                              title="Confirmer"
                             >
                               <Check size={18} />
                             </button>
                             <button
-                              onClick={() => updateStatus(r.id, 'CANCELLED')}
-                              disabled={updating === r.id}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                              onClick={() => updateStatus(reservation.id, 'CANCELLED')}
+                              disabled={updating === reservation.id}
+                              className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                              title="Annuler"
                             >
                               <X size={18} />
                             </button>
                           </>
                         )}
-                        {r.status === 'CONFIRMED' && (
-                          <button
-                            onClick={() => updateStatus(r.id, 'COMPLETED')}
-                            disabled={updating === r.id}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                          >
-                            <Clock size={18} />
-                          </button>
+                        {reservation.status === 'CONFIRMED' && (
+                          <>
+                            <button
+                              onClick={() => updateStatus(reservation.id, 'COMPLETED')}
+                              disabled={updating === reservation.id}
+                              className="p-1.5 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors disabled:opacity-50"
+                              title="Marquer comme terminée"
+                            >
+                              <Clock size={18} />
+                            </button>
+                            <button
+                              onClick={() => updateStatus(reservation.id, 'CANCELLED')}
+                              disabled={updating === reservation.id}
+                              className="p-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                              title="Annuler"
+                            >
+                              <X size={18} />
+                            </button>
+                          </>
                         )}
+                        <button
+                          onClick={() => deleteReservation(reservation.id)}
+                          disabled={updating === reservation.id}
+                          className="p-1.5 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors disabled:opacity-50"
+                          title="Supprimer"
+                        >
+                          <Trash2 size={18} />
+                        </button>
                       </div>
                     </td>
                   </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

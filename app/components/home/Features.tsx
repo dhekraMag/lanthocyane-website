@@ -1,50 +1,47 @@
-'use client'
-
-import { motion } from 'framer-motion'
-import { Utensils, Leaf, Wine, Building2 } from 'lucide-react'
+import { ChefHat, Sprout, Wine, Building2 } from 'lucide-react'
 
 const features = [
   {
-    icon: <Utensils className="w-8 h-8 text-[#7B2D6E]" />,
-    title: 'Cuisine créative',
-    description: 'Gastronomie française raffinée'
+    title: "Cuisine Créative",
+    description: "Une gastronomie française raffinée, revisitée avec créativité et passion par notre chef.",
+    icon: <ChefHat className="w-8 h-8 text-[#7B2D6E]" />,
   },
   {
-    icon: <Leaf className="w-8 h-8 text-[#4A7C59]" />,
-    title: 'Produits locaux',
-    description: 'Bretagne & saison'
+    title: "Produits Locaux",
+    description: "Des ingrédients frais et de saison, sourcés directement auprès des producteurs bretons.",
+    icon: <Sprout className="w-8 h-8 text-[#4A7C59]" />,
   },
   {
+    title: "Carte des Vins",
+    description: "Une sélection exclusive de vins fins, soigneusement choisis pour accompagner vos plats.",
     icon: <Wine className="w-8 h-8 text-[#C9A96E]" />,
-    title: 'Carte des vins',
-    description: 'Sélection exclusive'
   },
   {
+    title: "Ambiance Unique",
+    description: "Un cadre chaleureux et intimiste, alliant modernité et charme traditionnel.",
     icon: <Building2 className="w-8 h-8 text-[#2D1B2E]" />,
-    title: 'Ambiance unique',
-    description: 'Cadre chaleureux'
-  }
+  },
 ]
 
 export function Features() {
   return (
-    <section className="py-16 bg-white border-t border-[#C9A96E]/10">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+    <section className="py-20 px-4 bg-[#FDF8F0]">
+      <div className="max-w-6xl mx-auto">
+        <div className="text-center mb-12">
+          <h2 className="font-playfair text-3xl md:text-4xl text-[#2C2C2C] mb-4">
+            Pourquoi choisir L&apos;Anthocyane ?
+          </h2>
+          <p className="text-[#5C5C5C] max-w-2xl mx-auto">
+            Découvrez ce qui fait de notre restaurant un lieu d&apos;exception à Lannion
+          </p>
+        </div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
           {features.map((feature, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="group"
-            >
-              <div className="flex justify-center mb-3 group-hover:scale-110 transition-transform">
-                {feature.icon}
-              </div>
-              <p className="font-medium text-[#2D1B2E]">{feature.title}</p>
-              <p className="text-sm text-[#4A4A4A]">{feature.description}</p>
-            </motion.div>
+            <div key={index} className="text-center">
+              <div className="flex justify-center mb-4">{feature.icon}</div>
+              <h3 className="font-playfair text-xl text-[#2C2C2C] mb-2">{feature.title}</h3>
+              <p className="text-[#5C5C5C] text-sm">{feature.description}</p>
+            </div>
           ))}
         </div>
       </div>

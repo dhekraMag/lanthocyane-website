@@ -1,62 +1,74 @@
-'use client'
-
+import { Star, Leaf, Wheat, Fish, Beef, Coffee } from 'lucide-react'
 import Image from 'next/image'
-import { Star, Leaf, Wheat } from 'lucide-react'
+import { MenuItem as MenuItemType } from '@prisma/client'
 
 interface MenuItemProps {
-  item: {
-    id: number
-    name: string
-    description: string
-    price: string
-    dietary?: string[]
-    isChefRecommendation?: boolean
-    image: string
-    emoji?: string
-  }
+  item: MenuItemType
 }
 
 const dietaryIcons: Record<string, React.ReactNode> = {
   "Végétarien": <Leaf size={14} className="text-[#4A7C59]" />,
   "Sans gluten": <Wheat size={14} className="text-[#C9A96E]" />,
+  "Poisson": <Fish size={14} className="text-blue-500" />,
+  "Viande": <Beef size={14} className="text-red-500" />,
+  "Café": <Coffee size={14} className="text-amber-600" />,
 }
 
 export function MenuItem({ item }: MenuItemProps) {
+  const dietaryTags = item.dietary?.split(',').map(tag => tag.trim()) || []
+
   return (
-    <div className="bg-white rounded-xl shadow-sm hover:shadow-xl transition-all overflow-hidden border border-[#C9A96E]/10 group">
+    <div className="group bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 border border-[#E8DDD0]">
       {/* Image */}
-      <div className="relative h-56 overflow-hidden bg-[#FDF8F0]">
-        <Image
-          src={item.image}
-          alt={item.name}
-          fill
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
-          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-          }}
-        />
-        {item.isChefRecommendation && (
-          <div className="absolute top-3 right-3 bg-[#C9A96E] text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1 shadow-lg">
-            <Star size={12} fill="white" /> Coup de cœur
+      <div className="relative h-48 w-full overflow-hidden bg-[#F5EDE6]">
+        {item.image ? (
+          <Image
+            src={item.image}
+            alt={item.name}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-[#B8B8B8]">
+            <span className="text-4xl">🍽️</span>
+          </div>
+        )}
+        {item.isPopular && (
+          <div className="absolute top-3 right-3 bg-[#C9A96E] text-white px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+            <Star size={12} fill="white" />
+            Coup de cœur
           </div>
         )}
       </div>
-      
+
+      {/* Content */}
       <div className="p-5">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="text-xl font-serif text-[#2D1B2E]">{item.name}</h3>
-          <span className="text-lg font-serif text-[#C9A96E] font-bold whitespace-nowrap ml-4">
-            {item.price}
+        <div className="flex items-start justify-between gap-4">
+          <h3 className="font-playfair text-lg text-[#2C2C2C] group-hover:text-[#7B2D6E] transition-colors">
+            {item.name}
+          </h3>
+          <span className="font-bold text-[#7B2D6E] text-lg whitespace-nowrap">
+            {item.price.toFixed(2)} €
           </span>
         </div>
-        <p className="text-[#4A4A4A] text-sm mb-3">{item.description}</p>
-        {item.dietary && item.dietary.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {item.dietary.map((diet) => (
-              <span key={diet} className="text-xs bg-[#FDF8F0] px-2 py-1 rounded-full flex items-center gap-1 border border-[#C9A96E]/20">
-                {dietaryIcons[diet]}
-                {diet}
+
+        {item.description && (
+          <p className="text-[#5C5C5C] text-sm mt-2 line-clamp-2">
+            {item.description}
+          </p>
+        )}
+
+        {/* Dietary Tags */}
+        {dietaryTags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-3">
+            {dietaryTags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 px-2 py-1 bg-[#F5EDE6] rounded-full text-xs text-[#5C5C5C]"
+              >
+                {dietaryIcons[tag] || null}
+                {tag}
               </span>
             ))}
           </div>

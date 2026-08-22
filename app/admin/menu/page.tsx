@@ -1,17 +1,40 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useState, useEffect } from 'react'
 import { Plus, Trash2, Eye, EyeOff, Edit, X, RefreshCw } from 'lucide-react'
 
-interface MenuItem {
+type MenuItem = {
   id: string
   name: string
-  description: string
+  description: string | null
   price: number
   category: string
-  is_available: boolean
-  is_popular: boolean
+  dietary: string | null
+  isAvailable: boolean
+  isPopular: boolean
+  image: string | null
+}
+
+type MenuFormData = {
+  name: string
+  description: string
+  price: string
+  category: string
+  dietary: string
+  isAvailable: boolean
+  isPopular: boolean
+  image: string
+}
+
+const initialFormData: MenuFormData = {
+  name: '',
+  description: '',
+  price: '',
+  category: 'ENTREE',
+  dietary: '',
+  isAvailable: true,
+  isPopular: false,
+  image: '',
 }
 
 export default function AdminMenu() {
@@ -19,344 +42,353 @@ export default function AdminMenu() {
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [success, setSuccess] = useState<string | null>(null)
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    price: '',
-    category: 'ENTREE',
-    is_available: true,
-    is_popular: false,
-  })
+  const [formData, setFormData] = useState<MenuFormData>(initialFormData)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  // ✅ Load menu items
-  const loadMenu = async () => {
+  useEffect(() => {
+    fetchItems()
+  }, [])
+
+  const fetchItems = async () => {
+    setLoading(true)
     try {
-      setLoading(true)
-      const { data, error } = await supabase
-        .from('menu_items')
-        .select('*')
-        .order('category')
-
-      if (error) throw error
-      setItems(data || [])
-    } catch (err: any) {
-      setError(err.message)
+      const response = await fetch('/api/menu')
+      const data = await response.json()
+      setItems(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error('Error fetching menu items:', error)
+      setItems([])
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    loadMenu()
-  }, [])
-
-  // ✅ Refresh function
-  const handleRefresh = () => {
-    console.log('🔄 Refreshing menu...')
-    loadMenu()
+  const toggleAvailability = async (id: string) => {
+    try {
+      const item = items.find(i => i.id === id)
+      if (!item) return
+      
+      const response = await fetch('/api/menu', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...item, isAvailable: !item.isAvailable }),
+      })
+      if (response.ok) {
+        fetchItems()
+      }
+    } catch (error) {
+      console.error('Error toggling availability:', error)
+    }
   }
 
-  // ✅ Add button
-  const handleAdd = () => {
+  const deleteItem = async (id: string) => {
+    if (confirm('Êtes-vous sûr de vouloir supprimer cet élément ?')) {
+      try {
+        const response = await fetch(`/api/menu?id=${id}`, { method: 'DELETE' })
+        if (response.ok) {
+          fetchItems()
+        }
+      } catch (error) {
+        console.error('Error deleting item:', error)
+      }
+    }
+  }
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value,
+    }))
+  }
+
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, checked } = e.target
+    setFormData(prev => ({ ...prev, [name]: checked }))
+  }
+
+  const openCreateModal = () => {
     setEditingItem(null)
-    setFormData({
-      name: '',
-      description: '',
-      price: '',
-      category: 'ENTREE',
-      is_available: true,
-      is_popular: false,
-    })
+    setFormData(initialFormData)
     setShowModal(true)
   }
 
-  const handleEdit = (item: MenuItem) => {
+  const openEditModal = (item: MenuItem) => {
     setEditingItem(item)
     setFormData({
       name: item.name,
       description: item.description || '',
       price: item.price.toString(),
       category: item.category,
-      is_available: item.is_available,
-      is_popular: item.is_popular,
+      dietary: item.dietary || '',
+      isAvailable: item.isAvailable,
+      isPopular: item.isPopular,
+      image: item.image || '',
     })
     setShowModal(true)
   }
 
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingItem(null)
+    setFormData(initialFormData)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSaving(true)
-    setError(null)
+    setIsSubmitting(true)
+
+    const data = {
+      ...formData,
+      price: parseFloat(formData.price),
+    }
 
     try {
-      const data = {
-        name: formData.name,
-        description: formData.description,
-        price: parseFloat(formData.price),
-        category: formData.category,
-        is_available: formData.is_available,
-        is_popular: formData.is_popular,
-      }
+      const response = await fetch('/api/menu', {
+        method: editingItem ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editingItem ? { ...data, id: editingItem.id } : data),
+      })
 
-      let error
-      if (editingItem) {
-        const result = await supabase
-          .from('menu_items')
-          .update(data)
-          .eq('id', editingItem.id)
-        error = result.error
+      if (response.ok) {
+        fetchItems()
+        closeModal()
       } else {
-        const result = await supabase
-          .from('menu_items')
-          .insert([data])
-        error = result.error
+        alert('Erreur lors de la sauvegarde')
       }
-
-      if (error) throw error
-
-      setSuccess(editingItem ? 'Plat modifié!' : 'Plat ajouté!')
-      await loadMenu()
-      setShowModal(false)
-      setTimeout(() => setSuccess(null), 3000)
-    } catch (err: any) {
-      setError(err.message)
+    } catch (error) {
+      console.error('Error saving item:', error)
+      alert('Erreur lors de la sauvegarde')
     } finally {
-      setSaving(false)
+      setIsSubmitting(false)
     }
-  }
-
-  const toggleAvailability = async (id: string, isAvailable: boolean) => {
-    try {
-      const { error } = await supabase
-        .from('menu_items')
-        .update({ is_available: !isAvailable })
-        .eq('id', id)
-
-      if (error) throw error
-      await loadMenu()
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }
-
-  const deleteItem = async (id: string) => {
-    if (!confirm('Voulez-vous vraiment supprimer ce plat ?')) return
-    try {
-      const { error } = await supabase
-        .from('menu_items')
-        .delete()
-        .eq('id', id)
-
-      if (error) throw error
-      await loadMenu()
-    } catch (err: any) {
-      setError(err.message)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="w-8 h-8 border-4 border-[#7B2D6E] border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
   }
 
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h1 className="text-3xl font-serif text-[#2D1B2E]">Menu</h1>
-          <p className="text-[#4A4A4A]">{items.length} plats</p>
-        </div>
-        <div className="flex gap-2">
-          <button
-            onClick={handleRefresh}
-            className="bg-[#7B2D6E] text-white px-4 py-2 rounded-lg hover:bg-[#5C1F52] transition flex items-center gap-2"
-          >
-            <RefreshCw size={18} className={loading ? 'animate-spin' : ''} />
-            Rafraîchir
-          </button>
-          <button
-            onClick={handleAdd}
-            className="bg-[#7B2D6E] text-white px-4 py-2 rounded-lg hover:bg-[#5C1F52] transition flex items-center gap-2"
-          >
-            <Plus size={18} />
-            Ajouter
-          </button>
-        </div>
+    <div className="p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+        <h1 className="font-playfair text-2xl text-[#2C2C2C]">Gestion du Menu</h1>
+        <button
+          onClick={openCreateModal}
+          className="flex items-center gap-2 px-4 py-2 bg-[#7B2D6E] text-white rounded-lg hover:bg-[#6B255E] transition-colors"
+        >
+          <Plus size={18} />
+          Ajouter un plat
+        </button>
       </div>
 
-      {success && (
-        <div className="bg-green-50 text-green-600 px-4 py-2 rounded-lg mb-4">
-          ✅ {success}
+      {loading ? (
+        <div className="flex justify-center items-center py-12">
+          <RefreshCw size={32} className="animate-spin text-[#7B2D6E]" />
         </div>
-      )}
-
-      {error && (
-        <div className="bg-red-50 text-red-600 px-4 py-2 rounded-lg mb-4">
-          ❌ {error}
+      ) : items.length === 0 ? (
+        <div className="text-center py-12 bg-white rounded-xl border border-[#E8DDD0]">
+          <p className="text-[#5C5C5C]">Aucun élément dans le menu.</p>
+          <p className="text-sm text-[#5C5C5C] mt-2">Cliquez sur &quot;Ajouter un plat&quot; pour commencer.</p>
         </div>
-      )}
-
-      {/* Table */}
-      <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="p-4 text-left text-sm font-medium">Nom</th>
-              <th className="p-4 text-left text-sm font-medium">Prix</th>
-              <th className="p-4 text-left text-sm font-medium">Catégorie</th>
-              <th className="p-4 text-left text-sm font-medium">Statut</th>
-              <th className="p-4 text-left text-sm font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={5} className="p-8 text-center text-gray-500">
-                  Aucun plat
-                </td>
-              </tr>
-            ) : (
-              items.map((item) => (
-                <tr key={item.id} className="border-b hover:bg-gray-50">
-                  <td className="p-4 font-medium">{item.name}</td>
-                  <td className="p-4">{item.price}€</td>
-                  <td className="p-4">{item.category}</td>
-                  <td className="p-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      item.is_available ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {item.is_available ? 'Disponible' : 'Indisponible'}
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="bg-white rounded-xl shadow-sm border border-[#E8DDD0] p-6 hover:shadow-md transition-shadow"
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <h3 className="font-playfair text-lg text-[#2C2C2C]">{item.name}</h3>
+                  <p className="text-sm text-[#5C5C5C] mt-1 line-clamp-2">{item.description || 'Pas de description'}</p>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    <span className="text-xs px-2 py-1 bg-[#F5EDE6] rounded-full text-[#5C5C5C]">
+                      {item.category}
                     </span>
-                  </td>
-                  <td className="p-4">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEdit(item)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                      >
-                        <Edit size={18} />
-                      </button>
-                      <button
-                        onClick={() => toggleAvailability(item.id, item.is_available)}
-                        className="p-2 text-[#7B2D6E] hover:bg-[#7B2D6E]/10 rounded-lg"
-                      >
-                        {item.is_available ? <Eye size={18} /> : <EyeOff size={18} />}
-                      </button>
-                      <button
-                        onClick={() => deleteItem(item.id)}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                    {item.isPopular && (
+                      <span className="text-xs px-2 py-1 bg-[#C9A96E] text-white rounded-full">
+                        ★ Coup de cœur
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-lg font-bold text-[#7B2D6E] mt-2">{item.price.toFixed(2)} €</p>
+                </div>
+                <div className="flex flex-col gap-2 ml-4">
+                  <button
+                    onClick={() => toggleAvailability(item.id)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      item.isAvailable
+                        ? 'bg-green-100 text-green-600 hover:bg-green-200'
+                        : 'bg-red-100 text-red-600 hover:bg-red-200'
+                    }`}
+                    title={item.isAvailable ? 'Masquer' : 'Afficher'}
+                  >
+                    {item.isAvailable ? <Eye size={16} /> : <EyeOff size={16} />}
+                  </button>
+                  <button
+                    onClick={() => openEditModal(item)}
+                    className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors"
+                    title="Modifier"
+                  >
+                    <Edit size={16} />
+                  </button>
+                  <button
+                    onClick={() => deleteItem(item.id)}
+                    className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                    title="Supprimer"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-8 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-serif">
-                {editingItem ? 'Modifier' : 'Ajouter'} un plat
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-6 border-b border-[#E8DDD0]">
+              <h2 className="font-playfair text-xl text-[#2C2C2C]">
+                {editingItem ? 'Modifier le plat' : 'Ajouter un plat'}
               </h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-gray-100 rounded-lg">
-                <X size={24} />
+              <button
+                onClick={closeModal}
+                className="p-2 hover:bg-[#F5EDE6] rounded-lg transition-colors"
+              >
+                <X size={20} />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Nom *</label>
+                <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                  Nom du plat *
+                </label>
                 <input
                   type="text"
-                  required
+                  name="name"
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
+                  placeholder="Ex: Magret de Canard"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Description</label>
+                <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                  Description
+                </label>
                 <textarea
+                  name="description"
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                  onChange={handleInputChange}
                   rows={3}
+                  className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
+                  placeholder="Description du plat..."
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Prix (€) *</label>
+                  <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                    Prix (€) *
+                  </label>
                   <input
                     type="number"
+                    name="price"
+                    value={formData.price}
+                    onChange={handleInputChange}
                     required
                     step="0.01"
-                    value={formData.price}
-                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                    min="0"
+                    className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
+                    placeholder="0.00"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Catégorie</label>
+                  <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                    Catégorie *
+                  </label>
                   <select
+                    name="category"
                     value={formData.category}
-                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                    className="w-full px-4 py-2 rounded-lg border focus:border-[#7B2D6E] outline-none"
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
                   >
                     <option value="ENTREE">Entrée</option>
                     <option value="PLAT">Plat</option>
                     <option value="DESSERT">Dessert</option>
+                    <option value="BOISSON">Boisson</option>
                   </select>
                 </div>
               </div>
 
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2">
+              <div>
+                <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                  Régime (optionnel)
+                </label>
+                <input
+                  type="text"
+                  name="dietary"
+                  value={formData.dietary}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
+                  placeholder="Ex: Végétarien, Sans gluten"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#2C2C2C] mb-1">
+                  URL de l&apos;image (optionnel)
+                </label>
+                <input
+                  type="text"
+                  name="image"
+                  value={formData.image}
+                  onChange={handleInputChange}
+                  className="w-full px-4 py-2 border border-[#E8DDD0] rounded-lg focus:ring-2 focus:ring-[#7B2D6E] focus:border-transparent"
+                  placeholder="/images/menu/plat.jpg"
+                />
+              </div>
+
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 text-sm text-[#2C2C2C]">
                   <input
                     type="checkbox"
-                    checked={formData.is_available}
-                    onChange={(e) => setFormData({ ...formData, is_available: e.target.checked })}
+                    name="isAvailable"
+                    checked={formData.isAvailable}
+                    onChange={handleCheckboxChange}
+                    className="w-4 h-4 text-[#7B2D6E] rounded border-[#E8DDD0]"
                   />
                   Disponible
                 </label>
-                <label className="flex items-center gap-2">
+                <label className="flex items-center gap-2 text-sm text-[#2C2C2C]">
                   <input
                     type="checkbox"
-                    checked={formData.is_popular}
-                    onChange={(e) => setFormData({ ...formData, is_popular: e.target.checked })}
+                    name="isPopular"
+                    checked={formData.isPopular}
+                    onChange={handleCheckboxChange}
+                    className="w-4 h-4 text-[#7B2D6E] rounded border-[#E8DDD0]"
                   />
-                  Populaire
+                  Coup de cœur
                 </label>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="flex-1 bg-[#7B2D6E] text-white px-6 py-2 rounded-full hover:bg-[#5C1F52] transition disabled:opacity-50"
-                >
-                  {saving ? 'Enregistrement...' : editingItem ? 'Mettre à jour' : 'Ajouter'}
-                </button>
+              <div className="flex gap-3 pt-4 border-t border-[#E8DDD0]">
                 <button
                   type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-6 py-2 border rounded-full hover:bg-gray-50"
+                  onClick={closeModal}
+                  className="flex-1 px-4 py-2 border border-[#E8DDD0] rounded-lg hover:bg-[#F5EDE6] transition-colors"
                 >
                   Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 bg-[#7B2D6E] text-white rounded-lg hover:bg-[#6B255E] transition-colors disabled:opacity-50"
+                >
+                  {isSubmitting ? 'Sauvegarde...' : editingItem ? 'Mettre à jour' : 'Ajouter'}
                 </button>
               </div>
             </form>
