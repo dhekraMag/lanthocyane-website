@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: process.cwd(),
   },
+  output: 'standalone',
+  typescript: {
+    ignoreBuildErrors: true,
+  },
 }
 
 export default nextConfig

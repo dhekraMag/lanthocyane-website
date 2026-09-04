@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
 import { Calendar, Users, Utensils, Clock } from 'lucide-react'
 import { prisma } from '@/lib/prisma'
 

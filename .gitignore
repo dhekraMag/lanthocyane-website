@@ -13,3 +13,6 @@ yarn-error.log*
 prisma/generated/
 .prisma/
 .env.example
+
+.vercel
+.env*

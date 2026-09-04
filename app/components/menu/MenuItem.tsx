@@ -15,7 +15,7 @@ const dietaryIcons: Record<string, React.ReactNode> = {
 }
 
 export function MenuItem({ item }: MenuItemProps) {
-  const dietaryTags = item.dietary?.split(',').map(tag => tag.trim()) || []
+  const dietaryTags = item.dietary?.split(',').map((tag: string) => tag.trim()) || []
 
   return (
     <div className="group bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-300 border border-[#E8DDD0]">
@@ -49,7 +49,7 @@ export function MenuItem({ item }: MenuItemProps) {
             {item.name}
           </h3>
           <span className="font-bold text-[#7B2D6E] text-lg whitespace-nowrap">
-            {item.price.toFixed(2)} €
+            {Number(item.price).toFixed(2)} €
           </span>
         </div>
 
@@ -62,7 +62,7 @@ export function MenuItem({ item }: MenuItemProps) {
         {/* Dietary Tags */}
         {dietaryTags.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-3">
-            {dietaryTags.map((tag) => (
+            {dietaryTags.map((tag: string) => (
               <span
                 key={tag}
                 className="inline-flex items-center gap-1 px-2 py-1 bg-[#F5EDE6] rounded-full text-xs text-[#5C5C5C]"
