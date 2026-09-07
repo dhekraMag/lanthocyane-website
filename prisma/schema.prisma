@@ -7,7 +7,7 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   email     String   @unique
   password  String
   name      String
@@ -20,7 +20,7 @@ model User {
 }
 
 model Reservation {
-  id              String   @id @default(cuid())
+  id              String   @id @default(uuid())
   userId          String?  @map("user_id")
   user            User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   name            String
@@ -39,7 +39,7 @@ model Reservation {
 }
 
 model Table {
-  id           String   @id @default(cuid())
+  id           String   @id @default(uuid())
   number       Int      @unique
   capacity     Int
   isAvailable  Boolean  @default(true) @map("is_available")
@@ -52,7 +52,7 @@ model Table {
 }
 
 model MenuItem {
-  id          String       @id @default(cuid())
+  id          String       @id @default(uuid())
   name        String
   description String?
   price       Float
@@ -68,7 +68,7 @@ model MenuItem {
 }
 
 model ActivityLog {
-  id        String   @id @default(cuid())
+  id        String   @id @default(uuid())
   userId    String   @map("user_id")
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   action    String
@@ -77,7 +77,7 @@ model ActivityLog {
 }
 
 model Settings {
-  id                String   @id @default(cuid())
+  id                String   @id @default(uuid())
   restaurantName    String?  @map("restaurant_name")
   address           String?
   phone             String?

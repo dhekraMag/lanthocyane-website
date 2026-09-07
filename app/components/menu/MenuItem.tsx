@@ -1,6 +1,17 @@
 import { Star, Leaf, Wheat, Fish, Beef, Coffee } from 'lucide-react'
 import Image from 'next/image'
-import { MenuItem as MenuItemType } from '@prisma/client'
+
+export interface MenuItemType {
+  id: string
+  name: string
+  description?: string | null
+  price: number | string 
+  category?: string
+  dietary?: string | null
+  isAvailable?: boolean
+  isPopular?: boolean
+  image?: string | null
+}
 
 interface MenuItemProps {
   item: MenuItemType

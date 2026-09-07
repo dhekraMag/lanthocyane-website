@@ -6,9 +6,7 @@ const nextConfig: NextConfig = {
   },
   reactStrictMode: true,
   poweredByHeader: false,
-  typescript: {
-    ignoreBuildErrors: true,
-  },
+  outputFileTracingRoot: __dirname, 
 }
 
 export default nextConfig
